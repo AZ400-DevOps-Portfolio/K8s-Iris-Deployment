@@ -1,0 +1,31 @@
+# service.yaml
+# A Service exposes the Deployment to network traffic.
+# Without a Service, pods are unreachable from outside the cluster.
+#
+# Service types:
+#   ClusterIP   — internal only (default)
+#   NodePort    — accessible from outside on a static port
+#   LoadBalancer — cloud load balancer (AWS/Azure/GCP)
+#
+# We use NodePort here so the API is accessible locally
+# without needing a cloud load balancer.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: iris-api-service
+  namespace: default
+  labels:
+    app: iris-api
+    project: k8s-iris-deployment
+spec:
+  type: NodePort
+  selector:
+    # Routes traffic to all pods with this label
+    app: iris-api
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80           # Port the Service listens on
+    targetPort: 8000   # Port the container listens on
+    nodePort: 30000    # External port on the cluster node

@@ -1,0 +1,61 @@
+# hpa.yaml
+# HorizontalPodAutoscaler — automatically scales the number of pods
+# based on CPU usage. This is one of Kubernetes' most powerful features.
+#
+# How it works:
+#   - Monitors CPU usage across all iris-api pods
+#   - If average CPU > 70%, adds more pods (up to 10)
+#   - If average CPU < 70%, removes pods (down to 2)
+#   - Checks every 15 seconds
+#
+# Real world example:
+#   Normal traffic  → 2 pods running
+#   Traffic spike   → scales up to 10 pods automatically
+#   Traffic drops   → scales back down to 2 pods
+#   You pay only for what you use
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: iris-api-hpa
+  namespace: default
+  labels:
+    app: iris-api
+    project: k8s-iris-deployment
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: iris-api-deployment
+
+  minReplicas: 2   # Always keep at least 2 pods for high availability
+  maxReplicas: 10  # Scale up to 10 pods under heavy load
+
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 60

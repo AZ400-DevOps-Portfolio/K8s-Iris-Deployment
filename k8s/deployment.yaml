@@ -1,0 +1,77 @@
+# deployment.yaml
+# A Deployment tells Kubernetes how to run and manage the API containers.
+# It ensures the desired number of replicas are always running,
+# automatically restarts failed containers, and handles rolling updates
+# with zero downtime.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iris-api-deployment
+  namespace: default
+  labels:
+    app: iris-api
+    project: k8s-iris-deployment
+spec:
+  # Run 2 replicas for high availability
+  # If one pod fails, the other keeps serving traffic
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: iris-api
+
+  # Rolling update strategy — zero downtime deployments
+  # Kubernetes brings up new pods before taking down old ones
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Allow 1 extra pod during update
+      maxUnavailable: 0  # Never have fewer than desired replicas
+
+  template:
+    metadata:
+      labels:
+        app: iris-api
+        version: "1.0.0"
+    spec:
+      containers:
+      - name: iris-api
+        image: lindiwe22/iris-model-api:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8000
+          name: http
+
+        # Inject config from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: iris-api-config
+
+        # Resource limits — prevents one pod from consuming all cluster resources
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+
+        # Liveness probe — restarts container if it becomes unresponsive
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3
+
+        # Readiness probe — only sends traffic when container is ready
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3

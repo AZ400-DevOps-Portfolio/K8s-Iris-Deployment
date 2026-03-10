@@ -1,0 +1,40 @@
+# namespace.yaml
+# A Namespace provides isolated environments within a single cluster.
+# This is how you separate dev, staging, and production workloads
+# on the same Kubernetes cluster without them interfering.
+#
+# Think of namespaces like folders on a computer —
+# same cluster, completely isolated environments.
+#
+# The namespace structure:
+#   iris-dev        — development workloads
+#   iris-staging    — staging workloads
+#   iris-production — production workloads
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iris-dev
+  labels:
+    environment: development
+    project: k8s-iris-deployment
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iris-staging
+  labels:
+    environment: staging
+    project: k8s-iris-deployment
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iris-production
+  labels:
+    environment: production
+    project: k8s-iris-deployment

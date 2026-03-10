@@ -1,0 +1,108 @@
+# ci-cd.yml
+# GitHub Actions pipeline for the Kubernetes deployment.
+# On every push to main, this pipeline:
+#   1. Validates all Kubernetes manifests
+#   2. Checks for security issues in the manifests
+#   3. Applies the manifests to the cluster (when connected)
+
+name: K8s Iris Deployment Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+# ─────────────────────────────────────────────
+# JOB 1: Validate Kubernetes manifests
+# Checks YAML syntax and Kubernetes schema
+# without needing a real cluster
+# ─────────────────────────────────────────────
+  validate:
+    name: Validate K8s Manifests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install kubeval
+      run: |
+        wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+        tar xf kubeval-linux-amd64.tar.gz
+        sudo mv kubeval /usr/local/bin
+
+    - name: Validate all manifests
+      run: |
+        echo "Validating Kubernetes manifests..."
+        kubeval k8s/*.yaml --strict
+        echo "✅ All manifests are valid"
+
+    - name: Check all required files exist
+      run: |
+        files=(
+          "k8s/configmap.yaml"
+          "k8s/deployment.yaml"
+          "k8s/service.yaml"
+          "k8s/hpa.yaml"
+          "k8s/namespace.yaml"
+        )
+        for f in "${files[@]}"; do
+          if [ -f "$f" ]; then
+            echo "✅ Found: $f"
+          else
+            echo "❌ Missing: $f"
+            exit 1
+          fi
+        done
+
+# ─────────────────────────────────────────────
+# JOB 2: Security scan
+# Checks manifests for security best practices
+# ─────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Checkov security scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: k8s/
+        framework: kubernetes
+        soft_fail: true
+
+# ─────────────────────────────────────────────
+# JOB 3: Summary
+# Reports what would be deployed
+# ─────────────────────────────────────────────
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Print deployment summary
+      run: |
+        echo "========================================"
+        echo "  K8s Iris Deployment Summary"
+        echo "========================================"
+        echo "  Image:    lindiwe22/iris-model-api:latest"
+        echo "  Replicas: 2 (scales to 10 under load)"
+        echo "  Port:     30000 (NodePort)"
+        echo "  Autoscaling: CPU > 70% triggers scale up"
+        echo "========================================"
+        echo "  Manifests ready to apply:"
+        for f in k8s/*.yaml; do
+          echo "    ✅ $f"
+        done
+        echo "========================================"
